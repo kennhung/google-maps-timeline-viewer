@@ -1661,7 +1661,7 @@
             </div>
             <div id="api-controls">
                 <span id="api-call-counter">API Calls: 0</span>
-                <button id="disableApiBtn" class="cache-btn">Disable API</button>
+                <button id="disableApiBtn" class="cache-btn active">API Disabled</button>
             </div>
         </div>
     </div>
@@ -1848,7 +1848,7 @@
     let uiEnabled = false; // Flag to track if UI is enabled (data loaded)
     let placeApiCallCount = 0; // Counter for Place API calls
     let initialCacheSizeFromFile = 0;
-    let apiCallsDisabled = false;
+    let apiCallsDisabled = true;
     let pendingPlaceRequests = {}; // Tracks in-flight API requests (CONCURRENCY LOCK)
     let globalMinDate = null; // Earliest date in loaded data
     let globalMaxDate = null; // Latest date in loaded data
