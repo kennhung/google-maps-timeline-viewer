@@ -6811,6 +6811,7 @@
                 admin1 = component.longText;
             } else if (types.includes('country')) {
                 country = component.longText;
+                learnCountryCode(component.longText, component.shortText);
             }
         }
 
@@ -13071,9 +13072,59 @@ Departed: ${end}</description>
         return cleanCity || cleanCountry || "Residence";
     }
 
+    // Country name (any language, as returned by Places) -> ISO alpha-2, learned from
+    // the country address component's shortText so flags don't depend on the English table.
+    const learnedCountryCodes = {};
+    let learnedFromCache = null; // placeDetailsCache object we last scanned
+    let displayNameLookup = null; // lazily built reverse Intl.DisplayNames table
+
+    function learnCountryCode(longText, shortText) {
+        if (longText && /^[A-Za-z]{2}$/.test(shortText || '')) {
+            learnedCountryCodes[longText.toLowerCase()] = shortText.toUpperCase();
+        }
+    }
+
+    // Cached places already hold addressComponents, so older caches can be learned without new API calls
+    function learnCountryCodesFromCache() {
+        if (learnedFromCache === placeDetailsCache) return;
+        learnedFromCache = placeDetailsCache;
+        for (const place of Object.values(placeDetailsCache)) {
+            for (const comp of (place && place.addressComponents) || []) {
+                if (comp.types && comp.types.includes('country')) {
+                    learnCountryCode(comp.longText, comp.shortText);
+                }
+            }
+        }
+    }
+
+    function lookupViaDisplayNames(countryName) {
+        if (typeof Intl === 'undefined' || !Intl.DisplayNames) return "";
+        if (!displayNameLookup) {
+            displayNameLookup = {};
+            const langs = ['en', 'zh-TW', 'zh-CN', 'ja', 'ko', 'de', 'fr', 'es', 'it', 'pt', 'ru', 'th', 'vi', navigator.language];
+            for (const lang of langs) {
+                let names;
+                try { names = new Intl.DisplayNames([lang], { type: 'region' }); } catch (e) { continue; }
+                for (let a = 65; a <= 90; a++) {
+                    for (let b = 65; b <= 90; b++) {
+                        const iso = String.fromCharCode(a, b);
+                        let n;
+                        try { n = names.of(iso); } catch (e) { continue; }
+                        if (n && n !== iso) displayNameLookup[n.toLowerCase()] = iso;
+                    }
+                }
+            }
+        }
+        return displayNameLookup[countryName.toLowerCase()] || "";
+    }
+
     function getCountryFlagEmoji(countryName) {
         if (!countryName || countryName === "Unknown Country") return "";
         let code = countryToIso[countryName];
+        if (!code) {
+            learnCountryCodesFromCache();
+            code = learnedCountryCodes[countryName.toLowerCase()] || lookupViaDisplayNames(countryName);
+        }
         if (!code) {
             for (const [name, c] of Object.entries(countryToIso)) {
                 if (countryName.toLowerCase().includes(name.toLowerCase())) {
